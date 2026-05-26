@@ -79,7 +79,7 @@ export const maintenance = [
     price: 300,
     featured: false,
     feats: [
-      "Correctifs de sécurité essentiels (code)",
+      "Correctifs de sécurité du serveur",
       "Maj système indispensables (serveur)",
       "Surveillance mensuelle",
       "Réponse aux incidents sous 72 h",
