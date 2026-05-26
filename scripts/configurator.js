@@ -9,7 +9,7 @@
  *   • Deux actions de soumission : mailto et copie presse-papier
  */
 
-import { CONTACT_EMAIL, servers, maintenance, options } from "./data.js";
+import { CONTACT_EMAIL, servers, maintenance, optionGroups } from "./data.js";
 
 /* =============================================================
    CONSTANTES
@@ -36,7 +36,7 @@ const fmt = (n) => eurFormatter.format(n);
 const state = {
   server: null,
   maint: null,
-  options: new Set(),
+  opts: {}, // { groupId: choiceId }
 };
 
 function loadState() {
@@ -44,9 +44,17 @@ function loadState() {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
     if (saved.server) state.server = saved.server;
     if (saved.maint) state.maint = saved.maint;
-    if (Array.isArray(saved.options)) state.options = new Set(saved.options);
+    if (saved.opts && typeof saved.opts === "object") {
+      state.opts = { ...saved.opts };
+    }
   } catch {
     /* localStorage indisponible ou JSON corrompu : on repart à zéro */
+  }
+  // Initialise les groupes manquants avec leur valeur par défaut ("Sans X")
+  for (const group of optionGroups) {
+    if (!state.opts[group.id]) {
+      state.opts[group.id] = group.defaultId;
+    }
   }
 }
 
@@ -57,7 +65,7 @@ function persistState() {
       JSON.stringify({
         server: state.server,
         maint: state.maint,
-        options: [...state.options],
+        opts: state.opts,
       }),
     );
   } catch {
@@ -208,35 +216,40 @@ function buildMaintCard(m) {
   );
 }
 
-function buildOptionCard(o) {
+function buildOptionCard(group, choice) {
+  const ariaLabel = choice.price === 0
+    ? `Sélectionner ${choice.name}`
+    : `Sélectionner ${choice.name}, ${choice.pricePrefix ? choice.pricePrefix + " " : ""}${fmt(choice.price)} par an`;
+
   return el(
     "div",
     {
-      class: "opt",
+      class: `opt${choice.isNone ? " opt-none" : ""}`,
       role: "button",
       tabindex: "0",
       "aria-pressed": "false",
-      "aria-label": `Ajouter l'option ${o.name}, ${fmt(o.price)} par an`,
-      dataset: { group: "option", id: o.id },
+      "aria-label": ariaLabel,
+      dataset: { group: "option", optGroup: group.id, id: choice.id },
     },
     el("span", { class: "check" }, makeCheckIcon()),
     el(
       "div",
       { class: "o-top" },
-      el("div", { class: "o-name" }, o.name),
-      el(
-        "div",
-        { class: "o-price" },
-        fmt(o.price),
-        el("span", {}, " /an"),
-      ),
+      el("div", { class: "o-name" }, choice.name),
+      choice.price === 0
+        ? el("div", { class: "o-price o-free" }, "—")
+        : el(
+            "div",
+            { class: "o-price" },
+            choice.pricePrefix ? el("span", { class: "o-prefix" }, choice.pricePrefix) : null,
+            fmt(choice.price),
+            el("span", {}, " /an"),
+          ),
     ),
-    el("p", {}, o.desc),
-    el(
-      "div",
-      { class: "o-tags" },
-      ...o.tags.map((t) => el("span", {}, t)),
-    ),
+    el("p", {}, choice.desc),
+    choice.tags.length > 0
+      ? el("div", { class: "o-tags" }, ...choice.tags.map((t) => el("span", {}, t)))
+      : null,
   );
 }
 
@@ -256,7 +269,20 @@ function renderCatalogs() {
   maintenance.forEach((m) => $maint.append(buildMaintCard(m)));
 
   clearChildren($opts);
-  options.forEach((o) => $opts.append(buildOptionCard(o)));
+  optionGroups.forEach((group) => {
+    $opts.append(
+      el(
+        "div",
+        { class: "opt-group" },
+        el("div", { class: "opt-group-label" }, group.label),
+        el(
+          "div",
+          { class: "opt-choices" },
+          ...group.choices.map((choice) => buildOptionCard(group, choice)),
+        ),
+      ),
+    );
+  });
 }
 
 /* =============================================================
@@ -275,7 +301,7 @@ function syncSelection() {
     c.setAttribute("aria-pressed", String(on));
   });
   document.querySelectorAll('[data-group="option"]').forEach((c) => {
-    const on = state.options.has(c.dataset.id);
+    const on = state.opts[c.dataset.optGroup] === c.dataset.id;
     c.classList.toggle("selected", on);
     c.setAttribute("aria-pressed", String(on));
   });
@@ -290,31 +316,42 @@ function syncSelection() {
 function renderRecap() {
   const sv = servers.find((s) => s.id === state.server);
   const mt = maintenance.find((m) => m.id === state.maint);
-  const ops = options.filter((o) => state.options.has(o.id));
-  const hasAny = Boolean(sv || mt || ops.length);
-  const ready = Boolean(sv && mt);
-  const total = (sv?.price ?? 0) + (mt?.price ?? 0) + ops.reduce((a, o) => a + o.price, 0);
 
-  renderRecapLines(sv, mt, ops);
+  let optsTotal = 0;
+  for (const group of optionGroups) {
+    const choice = group.choices.find((c) => c.id === state.opts[group.id]);
+    if (choice) optsTotal += choice.price;
+  }
+
+  const hasAny = Boolean(sv || mt);
+  const ready = Boolean(sv && mt);
+  const total = (sv?.price ?? 0) + (mt?.price ?? 0) + optsTotal;
+
+  renderRecapLines(sv, mt);
   renderTotal(total, hasAny);
   renderMonthly(total, ready);
   renderMobileBar(total, hasAny, ready);
-  renderActionButtons(sv, mt, ops, total, ready);
+  renderActionButtons(sv, mt, total, ready);
 
   document.getElementById("reset-btn").style.display = hasAny ? "block" : "none";
 }
 
-function renderRecapLines(sv, mt, ops) {
+function renderRecapLines(sv, mt) {
   const $lines = document.getElementById("recap-lines");
   clearChildren($lines);
 
   $lines.append(sv ? makeLine("Serveur", sv.name, fmt(sv.price)) : makeEmptyLine("Serveur", "à choisir"));
-  $lines.append(mt ? makeLine("Maintenance", mt.name, fmt(mt.price)) : makeEmptyLine("Maintenance", "à choisir"));
+  $lines.append(mt ? makeLine("Maintenance serveur", mt.name, fmt(mt.price)) : makeEmptyLine("Maintenance serveur", "à choisir"));
 
-  if (ops.length) {
-    ops.forEach((o) => $lines.append(makeLine("Option", o.name, fmt(o.price))));
-  } else {
-    $lines.append(makeEmptyLine("Options", "aucune"));
+  for (const group of optionGroups) {
+    const choice = group.choices.find((c) => c.id === state.opts[group.id]);
+    if (!choice) continue;
+    if (choice.price === 0) {
+      $lines.append(makeNoneLine(group.label, choice.name));
+    } else {
+      const priceStr = (choice.pricePrefix ? choice.pricePrefix + " " : "") + fmt(choice.price);
+      $lines.append(makeLine(group.label, choice.name, priceStr));
+    }
   }
 }
 
@@ -345,6 +382,20 @@ function makeEmptyLine(category, placeholder) {
   );
 }
 
+function makeNoneLine(category, label) {
+  return el(
+    "div",
+    { class: "r-line r-line-none" },
+    el(
+      "span",
+      { class: "r-lab" },
+      el("span", { class: "r-cat" }, category),
+      " " + label,
+    ),
+    el("span", { class: "r-empty" }, "—"),
+  );
+}
+
 function renderTotal(total, hasAny) {
   const $total = document.getElementById("total");
   clearChildren($total);
@@ -369,12 +420,12 @@ function renderMobileBar(total, hasAny, ready) {
     : "Sélectionnez votre offre";
 }
 
-function renderActionButtons(sv, mt, ops, total, ready) {
+function renderActionButtons(sv, mt, total, ready) {
   const $quote = document.getElementById("quote-btn");
   const $copy = document.getElementById("copy-btn");
 
   if (ready) {
-    const body = buildEmailBody(sv, mt, ops, total);
+    const body = buildEmailBody(sv, mt, total);
     const mailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(SUBJECT)}&body=${encodeURIComponent(body)}`;
 
     $quote.removeAttribute("disabled");
@@ -397,15 +448,23 @@ function renderActionButtons(sv, mt, ops, total, ready) {
   $copy.classList.remove("copied");
 }
 
-function buildEmailBody(sv, mt, ops, total) {
+function buildEmailBody(sv, mt, total) {
+  const optLines = optionGroups.map((group) => {
+    const choice = group.choices.find((c) => c.id === state.opts[group.id]);
+    if (!choice) return null;
+    if (choice.price === 0) return `• ${group.label} : ${choice.name}`;
+    const priceStr = (choice.pricePrefix ? choice.pricePrefix + " " : "") + fmt(choice.price) + "/an";
+    return `• ${group.label} : ${choice.name} — ${priceStr}`;
+  }).filter(Boolean);
+
   const lines = [
     "Bonjour,",
     "",
     "Je souhaite un devis pour l'offre suivante :",
     "",
     `• Serveur : ${sv.name} (${sv.vcpu} vCPU, ${sv.ram} RAM, ${sv.ssd} SSD) — ${fmt(sv.price)}/an`,
-    `• Maintenance : ${mt.name} — ${fmt(mt.price)}/an`,
-    ...ops.map((o) => `• Option : ${o.name} — ${fmt(o.price)}/an`),
+    `• Maintenance serveur : ${mt.name} — ${fmt(mt.price)}/an`,
+    ...optLines,
     "",
     `Total indicatif : ${fmt(total)}/an`,
     "",
@@ -427,8 +486,7 @@ function toggleSelection(card) {
   } else if (group === "maint") {
     state.maint = state.maint === id ? null : id;
   } else if (group === "option") {
-    if (state.options.has(id)) state.options.delete(id);
-    else state.options.add(id);
+    state.opts[card.dataset.optGroup] = id;
   }
   syncSelection();
 }
@@ -498,7 +556,9 @@ async function copyToClipboard(text) {
 function onResetClick() {
   state.server = null;
   state.maint = null;
-  state.options.clear();
+  for (const group of optionGroups) {
+    state.opts[group.id] = group.defaultId;
+  }
   syncSelection();
 }
 

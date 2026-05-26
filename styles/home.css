@@ -471,16 +471,32 @@ h1.title em {
 }
 
 /* ============================================================
-   ÉTAPE 3 — options
+   ÉTAPE 3 — options (groupées)
    ============================================================ */
 .opts {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
 }
 
-@media (max-width: 620px) {
-  .opts { grid-template-columns: 1fr; }
+.opt-group-label {
+  font-size: .75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  color: var(--sage);
+  margin-bottom: 12px;
+}
+
+.opt-choices {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.opt-choices .opt {
+  flex: 1;
+  min-width: min(180px, 100%);
 }
 
 .opt {
@@ -562,6 +578,45 @@ h1.title em {
   font-family: var(--sans);
   font-size: .74rem;
   color: var(--sage);
+}
+
+.o-price.o-free {
+  color: var(--sage);
+  font-size: 1.1rem;
+}
+
+.o-prefix {
+  display: block;
+  font-family: var(--sans);
+  font-size: .7rem;
+  font-weight: 500;
+  color: var(--sage);
+  margin-bottom: 1px;
+}
+
+/* Carte "Sans X" — plus subtile, sélection neutre */
+.opt-none {
+  opacity: .6;
+}
+
+.opt-none:hover {
+  opacity: 1;
+}
+
+.opt-none.selected {
+  opacity: 1;
+  border-color: var(--line);
+  background: var(--cream-2);
+  box-shadow: none;
+}
+
+.opt-none.selected .check {
+  background: var(--sage);
+  border-color: var(--sage);
+}
+
+.r-line-none .r-lab {
+  opacity: .6;
 }
 
 .opt p {
