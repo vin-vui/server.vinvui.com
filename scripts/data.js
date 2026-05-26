@@ -79,7 +79,7 @@ export const maintenance = [
     price: 300,
     featured: false,
     feats: [
-      "Correctifs de sécurité essentiels (code)",
+      "Correctifs de sécurité du serveur",
       "Maj système indispensables (serveur)",
       "Surveillance mensuelle",
       "Réponse aux incidents sous 72 h",
@@ -116,19 +116,79 @@ export const maintenance = [
   },
 ];
 
-export const options = [
+export const optionGroups = [
+  {
+    id: "emailing",
+    label: "Service d'emailing",
+    defaultId: "email-none",
+    choices: [
+      {
+        id: "email-none",
+        name: "Sans emailing",
+        price: 0,
+        isNone: true,
+        desc: "Aucun service d'emailing inclus dans cette offre.",
+        tags: [],
+      },
+      {
+        id: "email-brevo-free",
+        name: "Brevo Free",
+        price: 65,
+        desc: "Configuration complète (compte, SPF, DKIM, DMARC). Jusqu'à 300 emails/jour, logo Brevo visible.",
+        tags: ["Jusqu'à 9 000 emails/mois", "Conforme RGPD", "Logo Brevo"],
+      },
+      {
+        id: "email-brevo-starter",
+        name: "Brevo Starter",
+        price: 225,
+        pricePrefix: "à partir de",
+        desc: "Configuration complète + abonnement Brevo Starter inclus. Sans logo Brevo, envoi illimité selon volume.",
+        tags: ["5 000 à 100 000 emails/mois", "Conforme RGPD", "Sans logo Brevo"],
+      },
+    ],
+  },
   {
     id: "analytics",
-    name: "Service d'analytique",
-    price: 70,
-    desc: "Installation de Plausible Analytics, intégré à votre tableau de bord admin, avec conseils d'optimisation.",
-    tags: ["Conforme RGPD", "Sans cookies", "Hébergé en Europe"],
+    label: "Analytique",
+    defaultId: "analytics-none",
+    choices: [
+      {
+        id: "analytics-none",
+        name: "Sans analytique",
+        price: 0,
+        isNone: true,
+        desc: "Aucun outil d'analyse de trafic inclus dans cette offre.",
+        tags: [],
+      },
+      {
+        id: "analytics-plausible",
+        name: "Service d'analytique",
+        price: 70,
+        desc: "Installation de Plausible Analytics, intégré à votre tableau de bord admin, avec conseils d'optimisation.",
+        tags: ["Conforme RGPD", "Sans cookies", "Hébergé en Europe"],
+      },
+    ],
   },
   {
     id: "domain",
-    name: "Nom de domaine",
-    price: 20,
-    desc: "Gestion et configuration complète de votre nom de domaine et des serveurs DNS.",
-    tags: [".com ou .fr", "Configuration DNS", "Gestion incluse"],
+    label: "Nom de domaine",
+    defaultId: "domain-none",
+    choices: [
+      {
+        id: "domain-none",
+        name: "Sans nom de domaine",
+        price: 0,
+        isNone: true,
+        desc: "Vous gérez votre nom de domaine de votre côté.",
+        tags: [],
+      },
+      {
+        id: "domain-managed",
+        name: "Nom de domaine",
+        price: 20,
+        desc: "Gestion et configuration complète de votre nom de domaine et des serveurs DNS.",
+        tags: [".com ou .fr", "Configuration DNS", "Gestion incluse"],
+      },
+    ],
   },
 ];
